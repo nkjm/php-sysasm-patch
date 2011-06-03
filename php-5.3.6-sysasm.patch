@@ -1,0 +1,57 @@
+--- oci8.c.orig	2011-01-01 11:19:59.000000000 +0900
++++ oci8.c	2011-06-03 10:06:07.000000000 +0900
+@@ -1170,6 +1170,7 @@
+ 	REGISTER_LONG_CONSTANT("OCI_DEFAULT",OCI_DEFAULT, CONST_CS | CONST_PERSISTENT);
+ 	REGISTER_LONG_CONSTANT("OCI_SYSOPER",OCI_SYSOPER, CONST_CS | CONST_PERSISTENT);
+ 	REGISTER_LONG_CONSTANT("OCI_SYSDBA",OCI_SYSDBA, CONST_CS | CONST_PERSISTENT);
++	REGISTER_LONG_CONSTANT("OCI_SYSASM",OCI_SYSASM, CONST_CS | CONST_PERSISTENT);
+ 	REGISTER_LONG_CONSTANT("OCI_CRED_EXT",PHP_OCI_CRED_EXT, CONST_CS | CONST_PERSISTENT);
+ 	REGISTER_LONG_CONSTANT("OCI_DESCRIBE_ONLY",OCI_DESCRIBE_ONLY, CONST_CS | CONST_PERSISTENT);
+ 	REGISTER_LONG_CONSTANT("OCI_COMMIT_ON_SUCCESS",OCI_COMMIT_ON_SUCCESS, CONST_CS | CONST_PERSISTENT);
+@@ -1723,15 +1724,19 @@
+ 	ub2 charsetid = 0;
+ 	ub2 charsetid_nls_lang = 0;
+ 
+-	if (session_mode & ~(OCI_SYSOPER | OCI_SYSDBA | PHP_OCI_CRED_EXT)) {
++	if (session_mode & ~(OCI_SYSOPER | OCI_SYSDBA | OCI_SYSASM | PHP_OCI_CRED_EXT)) {
+ 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid session mode specified (%ld)", session_mode);
+ 		return NULL;
+ 	}
+-	if (session_mode & (OCI_SYSOPER | OCI_SYSDBA | PHP_OCI_CRED_EXT)) {
++	if (session_mode & (OCI_SYSOPER | OCI_SYSDBA | OCI_SYSASM | PHP_OCI_CRED_EXT)) {
+ 		if ((session_mode & OCI_SYSOPER) && (session_mode & OCI_SYSDBA)) {
+ 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "OCI_SYSDBA and OCI_SYSOPER cannot be used together");
+ 			return NULL;
+ 		}
++		if ((session_mode & OCI_SYSOPER) && (session_mode & OCI_SYSASM)) {
++			php_error_docref(NULL TSRMLS_CC, E_WARNING, "OCI_SYSASM and OCI_SYSOPER cannot be used together");
++			return NULL;
++		}
+ 		if (session_mode & PHP_OCI_CRED_EXT) {
+ #ifdef PHP_WIN32
+ 			/* Disable external authentication on Windows as Impersonation is not yet handled.
+@@ -1745,13 +1750,13 @@
+ 				return NULL;
+ 			}
+ 		}
+-		if (session_mode & (OCI_SYSOPER | OCI_SYSDBA)) {
++		if (session_mode & (OCI_SYSOPER | OCI_SYSDBA | OCI_SYSASM)) {
+ 			/* Increase security by not caching privileged oci_pconnect() connections. The
+ 			 * connection becomes equivalent to oci_connect() or oci_new_connect().
+ 			 */
+ 			persistent = 0;
+ 			if (!OCI_G(privileged_connect)) {
+-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Privileged connect is disabled. Enable oci8.privileged_connect to be able to connect as SYSOPER or SYSDBA");
++				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Privileged connect is disabled. Enable oci8.privileged_connect to be able to connect as SYSOPER or SYSDBA or SYSASM");
+ 				return NULL;
+ 			}
+ 			/*	Disable privileged connections in Safe Mode (N.b. safe mode has been removed in PHP
+@@ -1777,7 +1782,7 @@
+ 	 * change is attempted or OCI_CRED_EXT mode is specified.
+ 	 * TODO: Re-enable this when OCI provides support.
+ 	 */
+-	if ((session_mode & (OCI_SYSOPER | OCI_SYSDBA | PHP_OCI_CRED_EXT)) || (new_password_len)) {
++	if ((session_mode & (OCI_SYSOPER | OCI_SYSDBA | OCI_SYSASM | PHP_OCI_CRED_EXT)) || (new_password_len)) {
+ 		use_spool = 0;
+ 	}
+ 
